@@ -2,6 +2,7 @@ from django.db.models import Q
 from rest_framework import viewsets, permissions, generics
 from rest_framework.generics import CreateAPIView
 
+from user.permissions import IsProfileOwnerOrReadOnly
 from .models import User, Profile
 from .serializers import (
     UserSerializer,
@@ -19,11 +20,11 @@ class CreateUserView(CreateAPIView):
 
 
 class ProfileViewSet(
-    mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet
+    viewsets.ModelViewSet
 ):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated, IsProfileOwnerOrReadOnly)
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -44,21 +45,6 @@ class ProfileViewSet(
                     | Q(username__icontains=search_query)
                 )
         return queryset
-
-    @action(detail=True, methods=["post"])
-    def update_profile(self, request, pk=None):
-        profile = self.get_object()
-        if profile.user != request.user:
-            self.permission_denied(
-                request, message="You can only update your own profile."
-            )
-
-        serializer = self.get_serializer(
-            profile, data=request.data, partial=True
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
     def follow(self, request, pk=None):
