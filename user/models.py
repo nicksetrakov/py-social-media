@@ -53,9 +53,10 @@ def profile_image_file_path(instance: "User", filename: str) -> str:
 
 class User(AbstractUser):
     username = None
-    bio = models.TextField(blank=True)
-    profile_picture = models.ImageField(upload_to=profile_image_file_path, blank=True, null=True)
     email = models.EmailField(_("email address"), unique=True)
+    followers = models.ManyToManyField(
+        "self", symmetrical=False, related_name="following"
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -63,9 +64,10 @@ class User(AbstractUser):
     objects = UserManager()
 
 
-class Follow(models.Model):
-    follower = models.ForeignKey(User, related_name='following', on_delete=models.CASCADE)
-    following = models.ForeignKey(User, related_name='followers', on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ('follower', 'following')
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    bio = models.TextField(blank=True)
+    username = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    profile_picture = models.ImageField(
+        upload_to=profile_image_file_path, blank=True, null=True
+    )
