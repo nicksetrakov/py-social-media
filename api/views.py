@@ -5,7 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from api.models import Post, Like, Hashtag
-from api.serializers import CommentSerializer, PostSerializer, HashtagSerializer, PostDetailSerializer
+from api.serializers import (
+    CommentSerializer,
+    PostSerializer,
+    HashtagSerializer,
+    PostDetailSerializer,
+)
 from api.permissions import IsAuthorOrReadOnly
 
 
@@ -17,7 +22,10 @@ class PostViewSet(
 ):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = (IsAuthenticated, IsAuthorOrReadOnly,)
+    permission_classes = (
+        IsAuthenticated,
+        IsAuthorOrReadOnly,
+    )
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -25,14 +33,22 @@ class PostViewSet(
     def get_queryset(self):
         user = self.request.user
         following_users = user.following.all()
-        return Post.objects.filter(Q(author=user) | Q(author__in=following_users))
+        return Post.objects.filter(
+            Q(author=user) | Q(author__in=following_users)
+        )
 
     def get_serializer_class(self):
-        if self.action == 'retrieve':
+        if self.action == "retrieve":
             return PostDetailSerializer
         return self.serializer_class
 
-    @action(detail=True, methods=["POST"])
+    @action(
+        detail=True,
+        methods=["POST"],
+        permission_classes=[
+            IsAuthenticated,
+        ],
+    )
     def like(self, request, pk=None):
         post = self.get_object()
         like, created = Like.objects.get_or_create(
@@ -40,10 +56,16 @@ class PostViewSet(
         )
         if not created:
             like.delete()
-            return Response({'status': 'unliked'}, status=status.HTTP_200_OK)
-        return Response({'status': 'liked'}, status=status.HTTP_200_OK)
+            return Response({"status": "unliked"}, status=status.HTTP_200_OK)
+        return Response({"status": "liked"}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["POST"])
+    @action(
+        detail=True,
+        methods=["POST"],
+        permission_classes=[
+            IsAuthenticated,
+        ],
+    )
     def comment(self, request, pk=None):
         print("Hello")
         post = self.get_object()

@@ -1,6 +1,7 @@
 from django.db.models import Q
-from rest_framework import viewsets, permissions, generics
+from rest_framework import viewsets
 from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from user.permissions import IsProfileOwnerOrReadOnly
 from .models import User, Profile
@@ -16,15 +17,13 @@ from rest_framework import status, mixins
 
 class CreateUserView(CreateAPIView):
     serializer_class = UserSerializer
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (AllowAny,)
 
 
-class ProfileViewSet(
-    viewsets.ModelViewSet
-):
+class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
-    permission_classes = (permissions.IsAuthenticated, IsProfileOwnerOrReadOnly)
+    permission_classes = (IsAuthenticated, IsProfileOwnerOrReadOnly)
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -46,7 +45,13 @@ class ProfileViewSet(
                 )
         return queryset
 
-    @action(detail=True, methods=["post"])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[
+            IsAuthenticated,
+        ],
+    )
     def follow(self, request, pk=None):
         profile = self.get_object()
         user_to_follow = profile.user
@@ -67,7 +72,13 @@ class ProfileViewSet(
             data={"detail": "You cannot follow yourself"},
         )
 
-    @action(detail=True, methods=["post"])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[
+            IsAuthenticated,
+        ],
+    )
     def unfollow(self, request, pk=None):
         profile = self.get_object()
         user_to_unfollow = profile.user
