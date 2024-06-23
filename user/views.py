@@ -1,4 +1,12 @@
 from django.db.models import Q
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiResponse,
+    OpenApiExample,
+    extend_schema_view,
+    OpenApiParameter,
+)
 from rest_framework import viewsets
 from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -15,11 +23,124 @@ from rest_framework.response import Response
 from rest_framework import status, mixins
 
 
+@extend_schema(
+    summary="Create a new user",
+    description="Create a new user. This endpoint is publicly accessible.",
+    request=UserSerializer,
+    responses={
+        201: UserSerializer,
+        400: OpenApiResponse(
+            response=OpenApiTypes.OBJECT,
+            examples=[
+                OpenApiExample(
+                    "Invalid data response",
+                    value={"detail": "Invalid data."},
+                )
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "Create user example",
+            value={
+                "email": "newuser@example.com",
+                "password": "newpassword",
+                "is_staff": False,
+            },
+        )
+    ],
+)
 class CreateUserView(CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = (AllowAny,)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="Retrieve a list of profiles",
+        description=(
+            "Retrieve a list of all profiles. "
+            "You can search by email or username using "
+            "the 'search' query parameter."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                description=(
+                    "Search users by email or username. " "(ex. ?search=user)"
+                ),
+                required=False,
+                type=OpenApiTypes.STR,
+            ),
+        ],
+        responses={200: ProfileSerializer(many=True)},
+        examples=[
+            OpenApiExample(
+                "Profile list example",
+                value=[
+                    {
+                        "id": 1,
+                        "username": "user1",
+                        "email": "user1@example.com",
+                        "bio": "This is user1's bio",
+                    },
+                    {
+                        "id": 2,
+                        "username": "user2",
+                        "email": "user2@example.com",
+                        "bio": "This is user2's bio",
+                    },
+                ],
+            )
+        ],
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve a single profile",
+        description="Retrieve the details of a specific profile by its ID.",
+        responses={200: ProfileDetailSerializer},
+        examples=[
+            OpenApiExample(
+                "Profile detail example",
+                value={
+                    "id": 1,
+                    "username": "user1",
+                    "email": "user1@example.com",
+                    "bio": "This is user1's bio",
+                    "followers": [
+                        {
+                            "id": 2,
+                            "username": "user2",
+                            "email": "user2@example.com",
+                        },
+                    ],
+                    "following": [
+                        {
+                            "id": 3,
+                            "username": "user3",
+                            "email": "user3@example.com",
+                        },
+                    ],
+                },
+            )
+        ],
+    ),
+    create=extend_schema(
+        summary="Create a new profile",
+        description=(
+            "Create a new profile. Only authenticated "
+            "users can create profiles."
+        ),
+        responses={201: ProfileSerializer},
+        examples=[
+            OpenApiExample(
+                "Create profile example",
+                value={
+                    "bio": "This is my bio",
+                },
+            )
+        ],
+    ),
+)
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
@@ -45,6 +166,38 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 )
         return queryset
 
+    @extend_schema(
+        summary="Follow a user",
+        description=(
+            "Follow a user. Only authenticated "
+            "users can follow other users."
+        ),
+        request=None,
+        responses={
+            201: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                examples=[
+                    OpenApiExample(
+                        "Follow response",
+                        value={"detail": "Successfully followed user"},
+                    )
+                ],
+            ),
+            400: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                examples=[
+                    OpenApiExample(
+                        "Already following response",
+                        value={"detail": "Already following"},
+                    ),
+                    OpenApiExample(
+                        "Follow self response",
+                        value={"detail": "You cannot follow yourself"},
+                    ),
+                ],
+            ),
+        },
+    )
     @action(
         detail=True,
         methods=["post"],
@@ -72,6 +225,34 @@ class ProfileViewSet(viewsets.ModelViewSet):
             data={"detail": "You cannot follow yourself"},
         )
 
+    @extend_schema(
+        summary="Unfollow a user",
+        description=(
+            "Unfollow a user. Only authenticated"
+            " users can unfollow other users."
+        ),
+        request=None,
+        responses={
+            204: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                examples=[
+                    OpenApiExample(
+                        "Unfollow response",
+                        value={"detail": "Successfully unfollowed user"},
+                    )
+                ],
+            ),
+            400: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                examples=[
+                    OpenApiExample(
+                        "Not following response",
+                        value={"detail": "Not following"},
+                    ),
+                ],
+            ),
+        },
+    )
     @action(
         detail=True,
         methods=["post"],
@@ -94,6 +275,30 @@ class ProfileViewSet(viewsets.ModelViewSet):
             data={"detail": "Not following"},
         )
 
+    @extend_schema(
+        summary="Get followers of a user",
+        description=(
+            "Retrieve the list of followers " "for the authenticated user."
+        ),
+        responses={200: UserSerializer(many=True)},
+        examples=[
+            OpenApiExample(
+                "Followers list example",
+                value=[
+                    {
+                        "id": 1,
+                        "username": "user1",
+                        "email": "user1@example.com",
+                    },
+                    {
+                        "id": 2,
+                        "username": "user2",
+                        "email": "user2@example.com",
+                    },
+                ],
+            )
+        ],
+    )
     @action(detail=True, methods=["get"])
     def followers(self, request, pk=None):
         user = self.request.user
@@ -101,6 +306,31 @@ class ProfileViewSet(viewsets.ModelViewSet):
         serializer = UserSerializer(followers, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Get following users",
+        description=(
+            "Retrieve the list of users that "
+            "the authenticated user is following."
+        ),
+        responses={200: UserSerializer(many=True)},
+        examples=[
+            OpenApiExample(
+                "Following list example",
+                value=[
+                    {
+                        "id": 3,
+                        "username": "user3",
+                        "email": "user3@example.com",
+                    },
+                    {
+                        "id": 4,
+                        "username": "user4",
+                        "email": "user4@example.com",
+                    },
+                ],
+            )
+        ],
+    )
     @action(detail=True, methods=["get"])
     def following(self, request, pk=None):
         user = self.request.user
