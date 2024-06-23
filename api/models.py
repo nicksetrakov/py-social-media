@@ -27,6 +27,7 @@ class Post(models.Model):
     hashtags = models.ManyToManyField(
         "Hashtag", related_name="posts", blank=True
     )
+    published = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["-created_at"]
