@@ -180,10 +180,8 @@ class PostViewSet(
         ],
     )
     def comment(self, request, pk=None):
-        print("Hello")
         post = self.get_object()
         serializer = CommentSerializer(data=request.data)
-        print(self.kwargs.get("content"))
         if serializer.is_valid():
             serializer.save(author=request.user, post=post)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
